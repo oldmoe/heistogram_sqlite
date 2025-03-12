@@ -354,7 +354,7 @@ int sqlite3_heistogram_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_rout
     rc = sqlite3_create_function(db, "heist_group_add", 1, SQLITE_UTF8, 0, 0, heist_group_add_step, heist_aggregate_final);
     if (rc != SQLITE_OK) return rc;
 
-    rc = sqlite3_create_function(db, "heist_group_add", 1, SQLITE_UTF8, 0, 0, heist_group_remove_step, heist_aggregate_final);
+    rc = sqlite3_create_function(db, "heist_group_remove", 1, SQLITE_UTF8, 0, 0, heist_group_remove_step, heist_aggregate_final);
     if (rc != SQLITE_OK) return rc;
 
     rc = sqlite3_create_function(db, "heist_count", 1, SQLITE_UTF8, 0, heist_count, 0, 0);
