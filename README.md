@@ -1,2 +1,61 @@
 # heistogram_sqlite
 The Heistogram quantile approximation library as a SQLite extension
+
+## how to build it
+
+clone the repp (using git clone --recursive to get the heistogram library itself)
+```bash
+  clone --recursive https://github.com/oldmoe/heistogram_sqlite.git
+```
+
+go to the /src directory and run (on linux)
+```bash
+  gcc -O3 -fpic -shared -o heistogram.so heistogram_sqlite.c -lm
+```
+You can now load the extension in sqlite and use it
+
+## Scalar functions
+
+### heist_create()
+Create an new heistogram, accepts zero or an arbitrary number of arguments, the non null values will be added to heistogram (any non int values will be coverted to int first)
+
+### heist_add(value)
+Adds a value to the heistogram
+
+### heist_remove(value)
+Removes a value from the heistogram, please note that removing values that are at the boundary of the heistogram may result in percentile queries returning results that are before or beyond the actual min or max of the heistogram, respectively. The maximum error will still be applicable though
+
+### heist_percentile(heistgram, percentile)
+Returns the apporixmate value at the requested percentile, precentiles range from 0 to 100, inclusive.
+
+### heist_merge(h1, h2)
+Merges heistgrams h1 and h2 and returns a new one
+
+### heist_count(heistogram)
+The total count of numbers inserted into the heistogram - the total count of numbers removed from the heistogram
+
+### heist_max(heistogram)
+The maximum value inseted into the heistogram
+
+### heist_min(heistogram)
+The minimum value inseted into the heistogram
+
+## Aggregate functions
+
+### heist_group_add(column)
+Adds a group of values belonging to column to a heistogram
+
+Example:
+```sql
+SELECT heist_percentile(heist_group_add(sample), 95) FROM (SELECT sample FROM samples WHERE active = 1);
+```
+### heist_group_remove(column)
+Same like heist_group_add but remove the values from the heistogram
+
+### heist_group_merge(column)
+Meerges all the heistograms in the column while ignoring null values
+
+Example:
+```sql
+SELECT heist_precentile(heist_group_merge(heistgram)) FROM summaries WHERE dimension = ?; 
+```
