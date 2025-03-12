@@ -55,7 +55,26 @@ Same like heist_group_add but remove the values from the heistogram
 ### heist_group_merge(column)
 Meerges all the heistograms in the column while ignoring null values
 
-Example:
-```sql
-SELECT heist_precentile(heist_group_merge(heistgram)) FROM summaries WHERE dimension = ?; 
+## Running the tests
+There's a test.sql file which you can execute as follows:
+
+```bash
+sqlite3 ":memory:" ".read test.sql"
+```
+You should see something like this:
+```
++--------------------+--------+--------+----------+
+|     test_name      | status | actual | expected |
++--------------------+--------+--------+----------+
+| add_null           | PASS   | 2      | 2        |
+| add_value          | PASS   | 3      | 3        |
+| create_empty       | PASS   | 0      | 0        |
+| create_with_nulls  | PASS   | 2      | 2        |
+| create_with_values | PASS   | 3      | 3        |
+| group_create       | PASS   | 1000   | 1000     |
+| merge_histograms   | PASS   | 4      | 4        |
+| percentile         | PASS   | 30.0   | 30       |
+| remove_null        | PASS   | 3      | 3        |
+| remove_value       | PASS   | 2      | 2        |
++--------------------+--------+--------+----------+
 ```
