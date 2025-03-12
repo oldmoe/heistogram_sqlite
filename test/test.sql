@@ -18,7 +18,6 @@ BEGIN;
         SELECT name, iif(result = expected,'PASS', 'FAIL'), result, expected FROM (
             SELECT 'create_empty' AS name, heist_count(heist_create()) AS result, 0 AS expected        
         );
-        SELECT heist_count(heist_create()) = 0 AS result
 COMMIT;
 
 -- Test 2: Create heistogram with values
