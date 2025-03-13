@@ -55,6 +55,9 @@ Same like heist_group_add but remove the values from the heistogram
 ### heist_group_merge(column)
 Meerges all the heistograms in the column while ignoring null values
 
+### heist_group_percentile(column)
+This is a convenience method that allows you to directly aggregat a column and calculate a percentile. It is discouraged though as it is slower than actually creating the heistogram first and then passing it to the scalar `heist_precentile()` function. Except if you are dealing with very few rows.
+
 ## Running the tests
 There's a test.sql file which you can execute as follows:
 
