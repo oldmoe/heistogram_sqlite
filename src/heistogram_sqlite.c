@@ -135,6 +135,12 @@ static void heist_merge(sqlite3_context *context, int argc, sqlite3_value **argv
         sqlite3_result_error(context, "Failed to merge heistograms", -1);
         return;
     }
+    
+    if(h->total_count == 0){
+        sqlite3_result_blob(context, buffer2, size2, free);
+        return;
+    }
+
     heistogram_merge_inplace_serialized(h, buffer2, size2);
     size_t size;
     void *buffer = heistogram_serialize(h, &size);
@@ -156,6 +162,42 @@ static void heist_percentile(sqlite3_context *context, int argc, sqlite3_value *
     double percentile = sqlite3_value_double(argv[1]);
     double result = heistogram_percentile_serialized(buffer, size, percentile);
     sqlite3_result_double(context, result);
+}
+
+static void heist_prank(sqlite3_context *context, int argc, sqlite3_value **argv) {
+    if (sqlite3_value_type(argv[0]) == SQLITE_NULL || sqlite3_value_type(argv[1]) == SQLITE_NULL) {
+        sqlite3_result_null(context);
+        return;
+    }
+    void *buffer = (void *)sqlite3_value_blob(argv[0]);
+    size_t size = sqlite3_value_bytes(argv[0]);
+    double value = sqlite3_value_double(argv[1]);
+    Heistogram *h = heistogram_deserialize(buffer, size);
+    if (!h) {
+        sqlite3_result_error(context, "Failed to deserialize heistogram", -1);
+        return;
+    }
+    double result = heistogram_prank(h, value);
+    heistogram_free(h);
+    sqlite3_result_double(context, result);
+}
+
+static void heist_count_upto(sqlite3_context *context, int argc, sqlite3_value **argv) {
+    if (sqlite3_value_type(argv[0]) == SQLITE_NULL || sqlite3_value_type(argv[1]) == SQLITE_NULL) {
+        sqlite3_result_null(context);
+        return;
+    }
+    void *buffer = (void *)sqlite3_value_blob(argv[0]);
+    size_t size = sqlite3_value_bytes(argv[0]);
+    uint64_t value = sqlite3_value_int64(argv[1]);
+    Heistogram *h = heistogram_deserialize(buffer, size);
+    if (!h) {
+        sqlite3_result_error(context, "Failed to deserialize heistogram", -1);
+        return;
+    }
+    uint64_t result = heistogram_count_upto(h, value);
+    heistogram_free(h);
+    sqlite3_result_int64(context, result);
 }
 
 static void heist_get_header_value(sqlite3_context *context, sqlite3_value *argument, enum header_value_name value_name){
@@ -199,23 +241,7 @@ static void heist_get_header_value(sqlite3_context *context, sqlite3_value *argu
 }
 
 static void heist_count(sqlite3_context *context, int argc, sqlite3_value **argv) {
-    //heist_get_header_value(context, argv[0], HEIST_COUNT);
-    if (sqlite3_value_type(argv[0]) == SQLITE_NULL) {
-        sqlite3_result_null(context);
-        return;
-    }
-    void *buffer = (void *)sqlite3_value_blob(argv[0]);
-    if(! buffer){
-        sqlite3_result_null(context);
-        return;
-    }
-    uint16_t bucket_count;
-    uint64_t total_count;
-    uint64_t min;
-    uint64_t max;
-    uint16_t min_bucket_id;
-    decode_header(buffer, &bucket_count, &total_count, &min, &max, &min_bucket_id);
-    sqlite3_result_int64(context, total_count);
+    heist_get_header_value(context, argv[0], HEIST_COUNT);
 }
 
 static void heist_max(sqlite3_context *context, int argc, sqlite3_value **argv) {
@@ -321,6 +347,52 @@ static void heist_group_merge_step(sqlite3_context *context, int argc, sqlite3_v
     heistogram_merge_inplace_serialized(*h_ptr, buffer, size);
 }
 
+typedef struct HeistPercentileCtx HeistPercentileCtx;
+
+struct HeistPercentileCtx {
+    Heistogram *h;
+    double percentile;
+};
+
+static void heist_group_percentile_step(sqlite3_context *context, int argc, sqlite3_value **argv) {
+    // Skip NULL values
+    if (sqlite3_value_type(argv[0]) == SQLITE_NULL) return;
+    
+    HeistPercentileCtx **ctx_ptr = (HeistPercentileCtx **)sqlite3_aggregate_context(context, sizeof(HeistPercentileCtx *));
+    
+    if (!(*ctx_ptr)) {
+        // First call - initialize the context
+        *ctx_ptr = sqlite3_malloc(sizeof(HeistPercentileCtx));
+
+        (*ctx_ptr)->h = heistogram_create();
+        if (!(*ctx_ptr)->h) {
+            sqlite3_free(*ctx_ptr);
+            sqlite3_result_error(context, "Failed to create heistogram", -1);
+            return;
+        }
+        
+        (*ctx_ptr)->percentile = sqlite3_value_double(argv[1]);
+    }
+    
+    uint64_t value = sqlite3_value_int64(argv[0]);
+    heistogram_add((*ctx_ptr)->h, value);    
+}
+
+static void heist_group_percentile_final(sqlite3_context *context) {
+    HeistPercentileCtx **ctx_ptr = (HeistPercentileCtx **)sqlite3_aggregate_context(context, 0);
+
+    if (!*ctx_ptr) {
+        sqlite3_result_error(context, "No heistogram created", -1);
+        return;
+    }
+
+    double result = heistogram_percentile((*ctx_ptr)->h, (*ctx_ptr)->percentile);
+    heistogram_free((*ctx_ptr)->h);
+    sqlite3_free(*ctx_ptr);
+    
+    sqlite3_result_double(context, result);
+}    
+
 
 #ifdef _WIN32
 __declspec(dllexport)
@@ -348,6 +420,9 @@ int sqlite3_heistogram_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_rout
     rc = sqlite3_create_function(db, "heist_percentile", 2, SQLITE_UTF8, 0, heist_percentile, 0, 0);
     if (rc != SQLITE_OK) return rc;
 
+    rc = sqlite3_create_function(db, "heist_group_percentile", 2, SQLITE_UTF8, 0, 0, heist_group_percentile_step, heist_group_percentile_final);
+    if (rc != SQLITE_OK) return rc;
+
     rc = sqlite3_create_function(db, "heist_group_merge", 1, SQLITE_UTF8, 0, 0, heist_group_merge_step, heist_aggregate_final);
     if (rc != SQLITE_OK) return rc;
 
@@ -372,6 +447,11 @@ int sqlite3_heistogram_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_rout
     rc = sqlite3_create_function(db, "heist_min_bucket", 1, SQLITE_UTF8, 0, heist_min_bucket, 0, 0);
     if (rc != SQLITE_OK) return rc;
 
+    rc = sqlite3_create_function(db, "heist_prank", 2, SQLITE_UTF8, 0, heist_prank, 0, 0);
+    if (rc != SQLITE_OK) return rc;
+
+    rc = sqlite3_create_function(db, "heist_count_upto", 2, SQLITE_UTF8, 0, heist_count_upto, 0, 0);
+    if (rc != SQLITE_OK) return rc;
 
     return rc;
 }
