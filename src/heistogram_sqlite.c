@@ -182,6 +182,7 @@ static void heist_prank(sqlite3_context *context, int argc, sqlite3_value **argv
     sqlite3_result_double(context, result);
 }
 
+/**
 static void heist_count_upto(sqlite3_context *context, int argc, sqlite3_value **argv) {
     if (sqlite3_value_type(argv[0]) == SQLITE_NULL || sqlite3_value_type(argv[1]) == SQLITE_NULL) {
         sqlite3_result_null(context);
@@ -199,6 +200,7 @@ static void heist_count_upto(sqlite3_context *context, int argc, sqlite3_value *
     heistogram_free(h);
     sqlite3_result_int64(context, result);
 }
+*/
 
 static void heist_get_header_value(sqlite3_context *context, sqlite3_value *argument, enum header_value_name value_name){
     if (sqlite3_value_type(argument) == SQLITE_NULL) {
@@ -450,8 +452,8 @@ int sqlite3_heistogram_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_rout
     rc = sqlite3_create_function(db, "heist_prank", 2, SQLITE_UTF8, 0, heist_prank, 0, 0);
     if (rc != SQLITE_OK) return rc;
 
-    rc = sqlite3_create_function(db, "heist_count_upto", 2, SQLITE_UTF8, 0, heist_count_upto, 0, 0);
-    if (rc != SQLITE_OK) return rc;
+    //rc = sqlite3_create_function(db, "heist_count_upto", 2, SQLITE_UTF8, 0, heist_count_upto, 0, 0);
+    //if (rc != SQLITE_OK) return rc;
 
     return rc;
 }
