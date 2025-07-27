@@ -5,7 +5,7 @@ The Heistogram quantile approximation library as a SQLite extension
 
 clone the repp (using git clone --recursive to get the heistogram library itself)
 ```bash
-  clone --recursive https://github.com/oldmoe/heistogram_sqlite.git
+  git clone --recursive https://github.com/oldmoe/heistogram_sqlite.git
 ```
 
 go to the /src directory and run (on linux)
