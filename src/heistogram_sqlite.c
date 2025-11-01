@@ -270,9 +270,11 @@ static void heist_min_bucket(sqlite3_context *context, int argc, sqlite3_value *
 static void heist_aggregate_final(sqlite3_context *context) {
     Heistogram **h_ptr = (Heistogram **)sqlite3_aggregate_context(context, sizeof(Heistogram *));
     if (!*h_ptr) {
-        sqlite3_result_error(context, "No heistogram created", -1);
+        //sqlite3_result_error(context, "No heistogram created", -1);
+        sqlite3_result_null(context);
         return;
     }
+    
     size_t size;
     void *buffer = heistogram_serialize(*h_ptr, &size);
     heistogram_free(*h_ptr);
